@@ -4,7 +4,6 @@ from sqlalchemy import Column, DateTime, String, Text, UUID
 from sqlalchemy.orm import relationship, Mapped
 from cognee.infrastructure.databases.relational import Base
 from .PipelineTask import PipelineTask
-from .Task import Task
 
 
 class Pipeline(Base):

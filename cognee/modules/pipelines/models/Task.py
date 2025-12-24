@@ -1,8 +1,8 @@
 from uuid import uuid4
 from datetime import datetime, timezone
 from sqlalchemy.orm import relationship, Mapped
-from sqlalchemy import Column, String, DateTime, Text
-from cognee.infrastructure.databases.relational import Base, UUID
+from sqlalchemy import Column, String, DateTime, Text, UUID
+from cognee.infrastructure.databases.relational import Base
 from .PipelineTask import PipelineTask
 
 

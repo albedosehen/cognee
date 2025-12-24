@@ -51,6 +51,12 @@ def upgrade() -> None:
     DATA_SIZE_COL = "data_size"
     DATA_TENANT_IDX = "ix_data_tenant_id"
 
+    # Check if data table exists before trying to modify it
+    # In fresh database setups, the table may be created by SQLAlchemy after migrations run
+    if DATA_TABLE not in existing:
+        # Table doesn't exist yet, skip modifications
+        return
+
     # --- tenant_id ---
     col = _get_column(insp, DATA_TABLE, DATA_TENANT_COL)
     if col is None:
@@ -88,9 +94,22 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_data_tenant_id"), table_name="data")
-    op.drop_column("data", "data_size")
-    op.drop_column("data", "tenant_id")
+    # Check if data table exists before trying to downgrade it
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    existing = set(insp.get_table_names())
+    
+    if "data" in existing:
+        # Only drop index and columns if the table exists
+        if _index_exists(insp, "data", "ix_data_tenant_id"):
+            op.drop_index(op.f("ix_data_tenant_id"), table_name="data")
+        
+        # Check if columns exist before dropping them
+        if _get_column(insp, "data", "data_size"):
+            op.drop_column("data", "data_size")
+        if _get_column(insp, "data", "tenant_id"):
+            op.drop_column("data", "tenant_id")
+    
     op.create_table(
         "_dlt_pipeline_state",
         sa.Column("version", sa.BIGINT(), autoincrement=False, nullable=False),

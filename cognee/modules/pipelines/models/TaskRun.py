@@ -1,7 +1,7 @@
 from uuid import uuid4
 from datetime import datetime, timezone
-from sqlalchemy import Column, DateTime, String, JSON
-from cognee.infrastructure.databases.relational import Base, UUID
+from sqlalchemy import Column, DateTime, String, JSON, UUID
+from cognee.infrastructure.databases.relational import Base
 
 
 class TaskRun(Base):

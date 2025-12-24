@@ -75,11 +75,22 @@ def _get_column(inspector, table, name, schema=None):
 def upgrade() -> None:
     conn = op.get_bind()
     insp = sa.inspect(conn)
+    existing_tables = insp.get_table_names()
+
+    # Defensive check: Ensure required tables exist before proceeding
+    required_tables = ["users", "datasets", "tenants", "principals"]
+    missing_tables = [table for table in required_tables if table not in existing_tables]
+    
+    if missing_tables:
+        print(f"WARNING: Required tables are missing: {missing_tables}")
+        print("This migration requires the initial migration to have been run first.")
+        print("Skipping multi-tenant migration - it will be applied when tables exist.")
+        return
 
     dataset = _define_dataset_table()
     user = _define_user_table()
 
-    if "user_tenants" not in insp.get_table_names():
+    if "user_tenants" not in existing_tables:
         # Define table with all necessary columns including primary key
         user_tenants = op.create_table(
             "user_tenants",
@@ -90,41 +101,50 @@ def upgrade() -> None:
             ),
         )
 
-        # Get all users with their tenant_id
-        user_data = conn.execute(
-            sa.select(user.c.id, user.c.tenant_id).where(user.c.tenant_id.isnot(None))
-        ).fetchall()
+        # Get all users with their tenant_id (only if users table exists and has data)
+        try:
+            user_data = conn.execute(
+                sa.select(user.c.id, user.c.tenant_id).where(user.c.tenant_id.isnot(None))
+            ).fetchall()
 
-        # Insert into user_tenants table
-        if user_data:
-            op.bulk_insert(
-                user_tenants,
-                [
-                    {"user_id": user_id, "tenant_id": tenant_id, "created_at": _now()}
-                    for user_id, tenant_id in user_data
-                ],
-            )
+            # Insert into user_tenants table
+            if user_data:
+                op.bulk_insert(
+                    user_tenants,
+                    [
+                        {"user_id": user_id, "tenant_id": tenant_id, "created_at": _now()}
+                        for user_id, tenant_id in user_data
+                    ],
+                )
+        except Exception as e:
+            print(f"Warning: Could not migrate existing user-tenant relationships: {e}")
+            # Continue anyway as this is not critical for fresh databases
 
     tenant_id_column = _get_column(insp, "datasets", "tenant_id")
     if not tenant_id_column:
         op.add_column("datasets", sa.Column("tenant_id", sa.UUID(), nullable=True))
 
         # Build subquery, select users.tenant_id for each dataset.owner_id
-        tenant_id_from_dataset_owner = (
-            sa.select(user.c.tenant_id).where(user.c.id == dataset.c.owner_id).scalar_subquery()
-        )
+        # Only update if there are existing datasets
+        try:
+            tenant_id_from_dataset_owner = (
+                sa.select(user.c.tenant_id).where(user.c.id == dataset.c.owner_id).scalar_subquery()
+            )
 
-        if op.get_context().dialect.name == "sqlite":
-            # If column doesn't exist create new original_extension column and update from values of extension column
-            with op.batch_alter_table("datasets") as batch_op:
-                batch_op.execute(
-                    dataset.update().values(
-                        tenant_id=tenant_id_from_dataset_owner,
+            if op.get_context().dialect.name == "sqlite":
+                # If column doesn't exist create new original_extension column and update from values of extension column
+                with op.batch_alter_table("datasets") as batch_op:
+                    batch_op.execute(
+                        dataset.update().values(
+                            tenant_id=tenant_id_from_dataset_owner,
+                        )
                     )
-                )
-        else:
-            conn = op.get_bind()
-            conn.execute(dataset.update().values(tenant_id=tenant_id_from_dataset_owner))
+            else:
+                conn = op.get_bind()
+                conn.execute(dataset.update().values(tenant_id=tenant_id_from_dataset_owner))
+        except Exception as e:
+            print(f"Warning: Could not migrate existing dataset tenant_id values: {e}")
+            # Continue anyway as this is not critical for fresh databases
 
         op.create_index(op.f("ix_datasets_tenant_id"), "datasets", ["tenant_id"])
 

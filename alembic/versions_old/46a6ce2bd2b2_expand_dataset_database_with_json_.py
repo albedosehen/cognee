@@ -208,6 +208,11 @@ def upgrade() -> None:
     conn = op.get_bind()
     insp = sa.inspect(conn)
 
+    # Defensive check: ensure dataset_database table exists before inspecting it
+    existing_tables = insp.get_table_names()
+    if TABLE_NAME not in existing_tables:
+        return
+
     unique_constraints = insp.get_unique_constraints(TABLE_NAME)
 
     vector_database_connection_info_column = _get_column(

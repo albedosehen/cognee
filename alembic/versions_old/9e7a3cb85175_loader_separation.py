@@ -30,6 +30,12 @@ def upgrade() -> None:
     conn = op.get_bind()
     insp = sa.inspect(conn)
 
+    # Check if data table exists before trying to modify it
+    # In fresh database setups, the table may be created by SQLAlchemy after migrations run
+    existing = insp.get_table_names()
+    if "data" not in existing:
+        return
+
     # Define table with all necessary columns including primary key
     data = sa.table(
         "data",
@@ -97,8 +103,22 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column("data", "raw_content_hash")
-    op.drop_column("data", "original_data_location")
-    op.drop_column("data", "loader_engine")
-    op.drop_column("data", "original_mime_type")
-    op.drop_column("data", "original_extension")
+    # Check if data table exists before trying to downgrade it
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    existing = insp.get_table_names()
+    
+    if "data" not in existing:
+        return
+    
+    # Check if columns exist before dropping them
+    if _get_column(insp, "data", "raw_content_hash"):
+        op.drop_column("data", "raw_content_hash")
+    if _get_column(insp, "data", "original_data_location"):
+        op.drop_column("data", "original_data_location")
+    if _get_column(insp, "data", "loader_engine"):
+        op.drop_column("data", "loader_engine")
+    if _get_column(insp, "data", "original_mime_type"):
+        op.drop_column("data", "original_mime_type")
+    if _get_column(insp, "data", "original_extension"):
+        op.drop_column("data", "original_extension")
