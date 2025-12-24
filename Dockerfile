@@ -16,7 +16,7 @@ ARG DEBUG
 # Set environment variable based on the build argument
 ENV DEBUG=${DEBUG}
 
-# Install system dependencies
+# Install system dependencies including playwright browser dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
@@ -25,6 +25,29 @@ RUN apt-get update && apt-get install -y \
     cmake \
     clang \
     build-essential \
+    # Playwright browser dependencies
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libdbus-1-3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxcb1 \
+    libxkbcommon0 \
+    libatspi2.0-0 \
+    libx11-6 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libwayland-client0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy pyproject.toml and lockfile first for better caching
@@ -32,7 +55,7 @@ COPY README.md pyproject.toml uv.lock entrypoint.sh ./
 
 # Install the project's dependencies using the lockfile and settings
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra debug --extra api --extra postgres --extra neo4j --extra llama-index --extra ollama --extra mistral --extra groq --extra anthropic --frozen --no-install-project --no-dev --no-editable
+    uv sync --extra debug --extra api --extra postgres --extra neo4j --extra llama-index --extra ollama --extra mistral --extra groq --extra anthropic --extra scraping --extra monitoring --frozen --no-install-project --no-dev --no-editable
 
 # Copy Alembic configuration
 COPY alembic.ini /app/alembic.ini
@@ -43,12 +66,38 @@ COPY alembic/ /app/alembic
 COPY ./cognee /app/cognee
 COPY ./distributed /app/distributed
 RUN --mount=type=cache,target=/root/.cache/uv \
-uv sync --extra debug --extra api --extra postgres --extra neo4j --extra llama-index --extra ollama --extra mistral --extra groq --extra anthropic --frozen --no-dev --no-editable
+uv sync --extra debug --extra api --extra postgres --extra neo4j --extra llama-index --extra ollama --extra mistral --extra groq --extra anthropic --extra scraping --extra monitoring --frozen --no-dev --no-editable
+
+# Install playwright browsers
+RUN /app/.venv/bin/playwright install chromium
 
 FROM python:3.12-slim-bookworm
 
 RUN apt-get update && apt-get install -y \
     libpq5 \
+    # Playwright runtime dependencies
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libdbus-1-3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxcb1 \
+    libxkbcommon0 \
+    libatspi2.0-0 \
+    libx11-6 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libwayland-client0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
