@@ -1,2 +1,6 @@
 # ignore jupyter notebooks in the language bar on github
 notebooks/** linguist-vendored
+
+# Enforce Unix line endings for shell scripts to prevent Docker exec errors
+*.sh text eol=lf
+entrypoint.sh text eol=lf
