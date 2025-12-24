@@ -17,7 +17,7 @@ class Pipeline(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
 
-    tasks = Mapped[list["Task"]] = relationship(
+    tasks: Mapped[list["Task"]] = relationship(
         secondary=PipelineTask.__tablename__,
-        back_populates="pipeline",
+        back_populates="pipelines",
     )

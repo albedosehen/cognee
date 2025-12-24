@@ -19,6 +19,6 @@ class Task(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
 
-    datasets: Mapped[list["Pipeline"]] = relationship(
-        secondary=PipelineTask.__tablename__, back_populates="task"
+    pipelines: Mapped[list["Pipeline"]] = relationship(
+        secondary=PipelineTask.__tablename__, back_populates="tasks"
     )

@@ -8,5 +8,5 @@ class PipelineTask(Base):
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    pipeline_id = Column("pipeline", UUID, ForeignKey("pipeline.id"), primary_key=True)
-    task_id = Column("task", UUID, ForeignKey("task.id"), primary_key=True)
+    pipeline_id = Column("pipeline", UUID, ForeignKey("pipelines.id"), primary_key=True)
+    task_id = Column("task", UUID, ForeignKey("tasks.id"), primary_key=True)
