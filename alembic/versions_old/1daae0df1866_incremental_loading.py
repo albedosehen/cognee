@@ -29,6 +29,13 @@ def _get_column(inspector, table, name, schema=None):
 def upgrade() -> None:
     conn = op.get_bind()
     insp = sa.inspect(conn)
+    existing = set(insp.get_table_names())
+
+    # Check if data table exists before trying to modify it
+    # In fresh database setups, the table may be created by SQLAlchemy after migrations run
+    if "data" not in existing:
+        # Table doesn't exist yet, skip modifications
+        return
 
     # If column already exists skip migration
     pipeline_status_column = _get_column(insp, "data", "pipeline_status")
@@ -45,4 +52,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column("data", "pipeline_status")
+    # Check if data table exists before trying to downgrade it
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    existing = set(insp.get_table_names())
+    
+    if "data" in existing:
+        # Only drop column if the table exists and column exists
+        if _get_column(insp, "data", "pipeline_status"):
+            op.drop_column("data", "pipeline_status")

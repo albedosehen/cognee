@@ -155,11 +155,9 @@ def upgrade() -> None:
     conn = op.get_bind()
     insp = sa.inspect(conn)
 
-    dataset_id_column = _get_column(insp, "acls", "dataset_id")
-    if not dataset_id_column:
-        # Recreate ACLs table with default permissions set to datasets instead of documents
-        op.drop_table("acls")
-
+    # Check if acls table exists before attempting to inspect its columns
+    if "acls" not in insp.get_table_names():
+        # Table doesn't exist - create it with new schema (dataset_id)
         acls_table = op.create_table(
             "acls",
             sa.Column("id", UUID, primary_key=True, default=uuid4),
@@ -176,8 +174,7 @@ def upgrade() -> None:
             sa.Column("dataset_id", UUID, sa.ForeignKey("datasets.id", ondelete="CASCADE")),
         )
 
-        # Note: We can't use any Cognee model info to gather data (as it can change) in database so we must use our own table
-        #       definition or load what is in the database
+        # Initialize ACL permissions for existing datasets (if any)
         dataset_table = _define_dataset_table()
         datasets = conn.execute(sa.select(dataset_table)).fetchall()
 
@@ -196,6 +193,49 @@ def upgrade() -> None:
 
         if acl_list:
             op.bulk_insert(acls_table, acl_list)
+    else:
+        # Table exists - check if it needs migration from data_id to dataset_id
+        dataset_id_column = _get_column(insp, "acls", "dataset_id")
+        if not dataset_id_column:
+            # Old schema exists - perform migration
+            op.drop_table("acls")
+
+            acls_table = op.create_table(
+                "acls",
+                sa.Column("id", UUID, primary_key=True, default=uuid4),
+                sa.Column(
+                    "created_at", sa.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+                ),
+                sa.Column(
+                    "updated_at",
+                    sa.DateTime(timezone=True),
+                    onupdate=lambda: datetime.now(timezone.utc),
+                ),
+                sa.Column("principal_id", UUID, sa.ForeignKey("principals.id")),
+                sa.Column("permission_id", UUID, sa.ForeignKey("permissions.id")),
+                sa.Column("dataset_id", UUID, sa.ForeignKey("datasets.id", ondelete="CASCADE")),
+            )
+
+            # Note: We can't use any Cognee model info to gather data (as it can change) in database so we must use our own table
+            #       definition or load what is in the database
+            dataset_table = _define_dataset_table()
+            datasets = conn.execute(sa.select(dataset_table)).fetchall()
+
+            if not datasets:
+                return
+
+            acl_list = []
+
+            for dataset in datasets:
+                acl_list.append(_create_dataset_permission(conn, dataset.owner_id, dataset.id, "read"))
+                acl_list.append(_create_dataset_permission(conn, dataset.owner_id, dataset.id, "write"))
+                acl_list.append(_create_dataset_permission(conn, dataset.owner_id, dataset.id, "share"))
+                acl_list.append(
+                    _create_dataset_permission(conn, dataset.owner_id, dataset.id, "delete")
+                )
+
+            if acl_list:
+                op.bulk_insert(acls_table, acl_list)
 
 
 def downgrade() -> None:

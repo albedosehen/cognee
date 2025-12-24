@@ -484,8 +484,10 @@ class SQLAlchemyAdapter:
 
     async def create_database(self):
         """
-        Create the database if it does not exist, ensuring necessary directories are in place
-        for SQLite.
+        Ensure database file/directory exists.
+        
+        Note: Tables are created via Alembic migrations, not metadata.create_all().
+        Run 'alembic upgrade head' to initialize the database schema.
         """
         if self.engine.dialect.name == "sqlite":
             db_directory = path.dirname(self.db_path)
@@ -495,9 +497,8 @@ class SQLAlchemyAdapter:
             if not await file_storage.file_exists(db_name):
                 await file_storage.ensure_directory_exists()
 
-        async with self.engine.begin() as connection:
-            if len(Base.metadata.tables.keys()) > 0:
-                await connection.run_sync(Base.metadata.create_all)
+        # Tables are created by Alembic migrations only
+        # Do NOT use Base.metadata.create_all() as it bypasses migration management
 
     async def delete_database(self):
         """

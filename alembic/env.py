@@ -1,4 +1,5 @@
 import asyncio
+import os
 from alembic import context
 from logging.config import fileConfig
 from sqlalchemy import pool
@@ -6,6 +7,36 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from cognee.infrastructure.databases.relational import get_relational_engine, Base
+from cognee.infrastructure.databases.relational.config import get_relational_config
+
+# Import all models to ensure they're registered with SQLAlchemy metadata
+# Import them one by one to avoid circular dependencies
+import cognee.modules.users.models.Principal
+import cognee.modules.users.models.Permission
+import cognee.modules.users.models.User
+import cognee.modules.users.models.Tenant
+import cognee.modules.users.models.Role
+import cognee.modules.users.models.ACL
+import cognee.modules.users.models.UserRole
+import cognee.modules.users.models.UserTenant
+import cognee.modules.users.models.UserDefaultPermissions
+import cognee.modules.users.models.TenantDefaultPermissions
+import cognee.modules.users.models.RoleDefaultPermissions
+import cognee.modules.users.models.DatasetDatabase
+import cognee.modules.data.models.Data
+import cognee.modules.data.models.Dataset
+import cognee.modules.data.models.DatasetData
+import cognee.modules.data.models.GraphMetrics
+import cognee.modules.data.models.graph_relationship_ledger
+import cognee.modules.search.models.Query
+import cognee.modules.search.models.Result
+import cognee.modules.notebooks.models.Notebook
+import cognee.modules.pipelines.models.PipelineRun
+import cognee.modules.sync.models.SyncOperation
+import cognee.modules.pipelines.models.Pipeline
+import cognee.modules.pipelines.models.Task
+import cognee.modules.pipelines.models.PipelineTask
+import cognee.modules.pipelines.models.TaskRun
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -83,16 +114,29 @@ def run_migrations_online() -> None:
     asyncio.run(run_async_migrations())
 
 
-db_engine = get_relational_engine()
+def configure_alembic():
+    """Configure alembic with database connection at runtime, not import time."""
+    # Ensure database directory exists before attempting to connect
+    # This is critical for SQLite which cannot create the database file
+    # if the parent directory doesn't exist
+    relational_config = get_relational_config()
+    if relational_config.db_provider == "sqlite" and relational_config.db_path:
+        os.makedirs(relational_config.db_path, exist_ok=True)
+        print(f"Ensured database directory exists: {relational_config.db_path}")
 
-print("Using database:", db_engine.db_uri)
+    db_engine = get_relational_engine()
 
-config.set_section_option(
-    config.config_ini_section,
-    "SQLALCHEMY_DATABASE_URI",
-    db_engine.db_uri,
-)
+    print("Using database:", db_engine.db_uri)
 
+    config.set_section_option(
+        config.config_ini_section,
+        "SQLALCHEMY_DATABASE_URI",
+        db_engine.db_uri,
+    )
+
+# Configure and run migrations unconditionally when alembic loads this file
+# This is the standard alembic pattern - env.py runs at import time
+configure_alembic()
 
 if context.is_offline_mode():
     print("OFFLINE MODE")

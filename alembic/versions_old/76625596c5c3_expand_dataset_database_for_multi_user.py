@@ -30,6 +30,10 @@ def upgrade() -> None:
     conn = op.get_bind()
     insp = sa.inspect(conn)
 
+    existing = insp.get_table_names()
+    if "dataset_database" not in existing:
+        return
+
     vector_database_provider_column = _get_column(
         insp, "dataset_database", "vector_database_provider"
     )
@@ -90,6 +94,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+
+    existing = insp.get_table_names()
+    if "dataset_database" not in existing:
+        return
+
     op.drop_column("dataset_database", "vector_database_provider")
     op.drop_column("dataset_database", "graph_database_provider")
     op.drop_column("dataset_database", "vector_database_url")

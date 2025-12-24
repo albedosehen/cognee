@@ -20,19 +20,42 @@ echo "HTTP port: $HTTP_PORT"
 # smooth redeployments and container restarts while maintaining data integrity.
 echo "Running database migrations..."
 
-MIGRATION_OUTPUT=$(alembic upgrade head)
-MIGRATION_EXIT_CODE=$?
+# Use a temporary file for migration output to allow real-time logging
+MIGRATION_LOG=$(mktemp)
+trap "rm -f $MIGRATION_LOG" EXIT
 
-if [[ $MIGRATION_EXIT_CODE -ne 0 ]]; then
-    if [[ "$MIGRATION_OUTPUT" == *"UserAlreadyExists"* ]] || [[ "$MIGRATION_OUTPUT" == *"User default_user@example.com already exists"* ]]; then
+# Run migrations with real-time output and capture for error checking
+if alembic upgrade head 2>&1 | tee "$MIGRATION_LOG"; then
+    echo "Database migrations completed successfully."
+else
+    MIGRATION_EXIT_CODE=$?
+    MIGRATION_OUTPUT=$(cat "$MIGRATION_LOG")
+    
+    echo "Migration command exited with code: $MIGRATION_EXIT_CODE"
+    
+    # Check for known non-critical errors
+    if echo "$MIGRATION_OUTPUT" | grep -q "UserAlreadyExists\|User default_user@example.com already exists"; then
         echo "Warning: Default user already exists, continuing startup..."
+    elif echo "$MIGRATION_OUTPUT" | grep -q "table.*already exists"; then
+        echo "Tables already exist but alembic_version is missing/out of sync."
+        echo "This typically happens when upgrading from code that used create_all() instead of migrations."
+        echo "Attempting to stamp database to current schema version..."
+        
+        # Stamp the database as being at the head revision
+        if alembic stamp head; then
+            echo "Database successfully stamped to head revision."
+        else
+            echo "Failed to stamp database. Migration output:"
+            cat "$MIGRATION_LOG"
+            echo "Please manually verify schema and run 'alembic stamp head'."
+            exit 1
+        fi
     else
-        echo "Migration failed with unexpected error."
+        echo "Migration failed with unexpected error:"
+        cat "$MIGRATION_LOG"
         exit 1
     fi
 fi
-
-echo "Database migrations done."
 
 echo "Starting server..."
 
