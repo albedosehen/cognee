@@ -65,6 +65,12 @@ ENV PYTHONUNBUFFERED=1
 ENV MCP_LOG_LEVEL=DEBUG
 ENV PYTHONPATH=/app
 
+# CORS configuration (optional)
+# SSE_CORS_ALLOWED_ORIGINS - Comma-separated list of allowed origins for SSE transport
+# HTTP_CORS_ALLOWED_ORIGINS - Comma-separated list of allowed origins for HTTP transport
+# Default: "http://localhost:3000" for both
+# Example: "http://localhost:3000,http://localhost:3001"
+
 # Add labels for API mode usage
 LABEL org.opencontainers.image.description="Cognee MCP Server with API mode support"
 

@@ -6,9 +6,10 @@ export async function GET(request: Request) {
   const accessToken = await auth0.getAccessToken();
 
   if (accessToken) {
+    const cookieName = process.env.AUTH_TOKEN_COOKIE_NAME || "cognee_token";
     const response = new Response();
 
-    response.headers.set("Set-Cookie", `${process.env.AUTH_TOKEN_COOKIE_NAME}=${accessToken.token}; Expires=${new Date(accessToken.expiresAt * 1000).toUTCString()}; Path=/; SameSite=Lax; Domain=localhost; HttpOnly`);
+    response.headers.set("Set-Cookie", `${cookieName}=${accessToken.token}; Expires=${new Date(accessToken.expiresAt * 1000).toUTCString()}; Path=/; SameSite=Lax; Domain=localhost; HttpOnly`);
 
     return response;
   } else {
