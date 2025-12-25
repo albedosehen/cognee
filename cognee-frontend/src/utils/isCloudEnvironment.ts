@@ -1,4 +1,5 @@
 
 export default function isCloudEnvironment() {
-  return process.env.NEXT_PUBLIC_IS_CLOUD_ENVIRONMENT?.toLowerCase() === "true";
+  const envValue = process.env.NEXT_PUBLIC_IS_CLOUD_ENVIRONMENT ?? "false";
+  return envValue.toLowerCase() === "true";
 }

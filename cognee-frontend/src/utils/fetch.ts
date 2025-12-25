@@ -3,7 +3,8 @@ import isCloudEnvironment from "./isCloudEnvironment";
 
 let numberOfRetries = 0;
 
-const isAuth0Enabled = process.env.USE_AUTH0_AUTHORIZATION?.toLowerCase() === "true";
+const auth0EnvValue = process.env.USE_AUTH0_AUTHORIZATION ?? "false";
+const isAuth0Enabled = auth0EnvValue.toLowerCase() === "true";
 
 const backendApiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || "http://localhost:8000";
 

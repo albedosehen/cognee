@@ -42,13 +42,23 @@ logger = get_logger()
 
 cognee_client: Optional[CogneeClient] = None
 
+# Store server configuration for health endpoint
+server_config = {
+    "transport_mode": None,
+    "api_url": None,
+}
+
 
 async def run_sse_with_cors():
     """Custom SSE transport with CORS middleware."""
+    # Get CORS origins from environment variable, default to localhost:3000
+    cors_origins_str = os.getenv("SSE_CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+    cors_origins = [origin.strip() for origin in cors_origins_str.split(",")]
+    
     sse_app = mcp.sse_app()
     sse_app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET"],
         allow_headers=["*"],
@@ -66,10 +76,14 @@ async def run_sse_with_cors():
 
 async def run_http_with_cors():
     """Custom HTTP transport with CORS middleware."""
+    # Get CORS origins from environment variable, default to localhost:3000
+    cors_origins_str = os.getenv("HTTP_CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+    cors_origins = [origin.strip() for origin in cors_origins_str.split(",")]
+    
     http_app = mcp.streamable_http_app()
     http_app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET"],
         allow_headers=["*"],
@@ -87,7 +101,12 @@ async def run_http_with_cors():
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
-    return JSONResponse({"status": "ok"})
+    response_data = {
+        "status": "ok",
+        "transport_mode": server_config.get("transport_mode"),
+        "api_url": server_config.get("api_url"),
+    }
+    return JSONResponse(response_data)
 
 
 @mcp.tool()
@@ -845,6 +864,10 @@ async def main():
     )
 
     args = parser.parse_args()
+
+    # Store configuration in global server_config for health endpoint
+    server_config["transport_mode"] = args.transport
+    server_config["api_url"] = args.api_url
 
     # Initialize the global CogneeClient
     cognee_client = CogneeClient(api_url=args.api_url, api_token=args.api_token)
